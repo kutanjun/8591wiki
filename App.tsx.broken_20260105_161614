@@ -1,0 +1,1623 @@
+
+import React, { useState, useEffect, useRef } from 'react';
+import { BrowserRouter, useNavigate, useLocation } from 'react-router-dom';
+import Layout from './components/Layout';
+import AdminPanel from './components/AdminPanel';
+import Login from './components/Login';
+import ImageGallery from './components/ImageGallery';
+import { GameKB, GameCategory, SectionType, KBItem, CustomSectionType, KBSubItem } from './types';
+import { INITIAL_GAMES } from './constants';
+
+// 获取所有可用的板块类型（从localStorage）
+const getAllAvailableSectionTypes = (): string[] => {
+  const saved = localStorage.getItem('allSectionTypes');
+  if (saved) {
+    return JSON.parse(saved);
+  }
+  // 默认板块类型
+  return [
+    SectionType.MECHANICS,
+    SectionType.CONTACT,
+    SectionType.TERMINOLOGY,
+    SectionType.FAQ,
+    SectionType.PRACTICE
+  ];
+};
+
+// 保存所有板块类型
+const saveAllSectionTypes = (types: string[]) => {
+  localStorage.setItem('allSectionTypes', JSON.stringify(types));
+};
+
+// 获取所有板块类型（包括自定义的）- 保持向后兼容
+const getAllSectionTypes = (): string[] => {
+  return getAllAvailableSectionTypes();
+};
+
+// 获取自定义板块类型列表（保持向后兼容）
+const getCustomSectionTypes = (): CustomSectionType[] => {
+  const allTypes = getAllAvailableSectionTypes();
+  const defaultTypes = Object.values(SectionType);
+  // 找出不在默认类型中的，作为自定义类型
+  return allTypes
+    .filter(type => !defaultTypes.includes(type as SectionType))
+    .map((name, index) => ({ id: `custom-${index}`, name }));
+};
+
+// 保存自定义板块类型（保持向后兼容）
+const saveCustomSectionTypes = (types: CustomSectionType[]) => {
+  const allTypes = getAllAvailableSectionTypes();
+  const defaultTypes = Object.values(SectionType);
+  const customNames = types.map(t => t.name);
+  // 合并默认类型和自定义类型
+  const newAllTypes = [...defaultTypes, ...customNames];
+  saveAllSectionTypes(newAllTypes);
+};
+
+// 单张图片放大组件
+const ImageZoom: React.FC<{ imageUrl: string; alt: string }> = ({ imageUrl, alt }) => {
+  const [isZoomed, setIsZoomed] = useState(false);
+
+  const handleImageClick = () => {
+    setIsZoomed(true);
+  };
+
+  const handleCloseZoom = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      setIsZoomed(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      setIsZoomed(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="my-4 cursor-pointer hover:opacity-90 transition-opacity" onClick={handleImageClick}>
+        <div className="relative">
+          <img 
+            src={imageUrl} 
+            alt={alt}
+            className="w-full rounded-xl border border-gray-200"
+            style={{ maxHeight: '600px', objectFit: 'contain' }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+          <div className="absolute top-2 left-2 bg-black/50 text-white px-3 py-1 rounded-full text-xs">
+            點擊放大
+          </div>
+        </div>
+      </div>
+
+      {/* 放大Modal */}
+      {isZoomed && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          onClick={handleCloseZoom}
+          onKeyDown={handleKeyDown}
+          tabIndex={0}
+        >
+          <button
+            onClick={handleCloseZoom}
+            className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white p-3 rounded-full transition-all text-2xl z-10"
+          >
+            ✕
+          </button>
+          <img
+            src={imageUrl}
+            alt={alt}
+            className="max-w-full max-h-full w-auto h-auto object-contain"
+            onClick={(e) => e.stopPropagation()}
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        </div>
+      )}
+    </>
+  );
+};
+
+// Banner 配置弹窗组件
+const BannerConfigModal: React.FC<{
+  game: GameKB;
+  onClose: () => void;
+  onSave: (bannerTitle: string, bannerLink: string, bannerImage: string) => void;
+}> = ({ game, onClose, onSave }) => {
+  const [bannerTitle, setBannerTitle] = useState(game.bannerTitle || '');
+  const [bannerLink, setBannerLink] = useState(game.bannerLink || '');
+  const [bannerImage, setBannerImage] = useState(game.bannerImage || '');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('請選擇圖片文件！');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('圖片大小不能超過 5MB！');
+      return;
+    }
+
+    setIsUploading(true);
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setBannerImage(base64String);
+      setIsUploading(false);
+      
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    };
+    reader.onerror = () => {
+      alert('圖片讀取失敗，請重試！');
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = () => {
+    onSave(bannerTitle, bannerLink, bannerImage);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b border-gray-200">
+          <h3 className="text-2xl font-black text-slate-800">Banner 配置</h3>
+          <p className="text-sm text-slate-500 mt-1">設置 Banner 圖片、標題和跳轉鏈接</p>
+        </div>
+        
+        <div className="p-6 space-y-6">
+          {/* Banner 标题 */}
+          <div>
+            <label className="block text-sm font-black text-slate-700 mb-2">
+              Banner 標題 <span className="text-xs text-slate-400">(例如：傳說對決 v1.0.0)</span>
+            </label>
+            <input
+              type="text"
+              value={bannerTitle}
+              onChange={(e) => setBannerTitle(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 rounded-xl border-2 border-gray-200 focus:border-orange-400 focus:outline-none text-slate-700 font-bold"
+              placeholder="輸入 Banner 標題..."
+            />
+            <p className="text-xs text-slate-400 mt-1">標題將顯示在 Banner 底部，讓客服直觀了解當前遊戲版本</p>
+          </div>
+
+          {/* Banner 链接 */}
+          <div>
+            <label className="block text-sm font-black text-slate-700 mb-2">
+              Banner 跳轉鏈接 <span className="text-xs text-slate-400">(選填)</span>
+            </label>
+            <input
+              type="url"
+              value={bannerLink}
+              onChange={(e) => setBannerLink(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 rounded-xl border-2 border-gray-200 focus:border-orange-400 focus:outline-none text-slate-700 font-bold"
+              placeholder="https://example.com"
+            />
+            <p className="text-xs text-slate-400 mt-1">設置後，點擊 Banner 或標題將跳轉到該鏈接</p>
+          </div>
+
+          {/* Banner 图片 */}
+          <div>
+            <label className="block text-sm font-black text-slate-700 mb-2">
+              Banner 圖片
+            </label>
+            <div className="flex gap-3">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="px-4 py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white rounded-xl font-bold text-sm transition-all"
+              >
+                {isUploading ? '⏳ 上傳中...' : '📷 選擇圖片'}
+              </button>
+              {bannerImage && (
+                <button
+                  onClick={() => setBannerImage('')}
+                  className="px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold text-sm transition-all"
+                >
+                  🗑️ 清除圖片
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            {bannerImage && (
+              <div className="mt-4">
+                <img 
+                  src={bannerImage} 
+                  alt="Banner 預覽" 
+                  className="w-full h-48 object-cover rounded-xl border-2 border-gray-200"
+                />
+              </div>
+            )}
+            <p className="text-xs text-slate-400 mt-1">留空則使用封面圖作為 Banner</p>
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-slate-700 rounded-xl font-bold transition-all"
+          >
+            取消
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold transition-all"
+          >
+            💾 保存
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Banner 上传按钮组件（可复用）
+const BannerUploadButton: React.FC<{
+  game: GameKB;
+  onUpdateBannerImage: (imageUrl: string) => void;
+  onUpdateGame?: (updatedGame: GameKB) => void;
+}> = ({ game, onUpdateBannerImage, onUpdateGame }) => {
+  const [showConfigModal, setShowConfigModal] = useState(false);
+
+  const handleSaveConfig = (bannerTitle: string, bannerLink: string, bannerImage: string) => {
+    if (onUpdateGame) {
+      const updatedGame = {
+        ...game,
+        bannerTitle: bannerTitle.trim() || undefined,
+        bannerLink: bannerLink.trim() || undefined,
+        bannerImage: bannerImage || undefined,
+      };
+      onUpdateGame(updatedGame);
+    } else {
+      // 如果没有 onUpdateGame，只更新图片
+      if (bannerImage) {
+        onUpdateBannerImage(bannerImage);
+      }
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setShowConfigModal(true)}
+        className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-3 rounded-xl font-bold text-sm shadow-lg transition-all"
+        title="配置 Banner（圖片、標題、鏈接）"
+      >
+        ⚙️ 配置 Banner
+      </button>
+      
+      {showConfigModal && (
+        <BannerConfigModal
+          game={game}
+          onClose={() => setShowConfigModal(false)}
+          onSave={handleSaveConfig}
+        />
+      )}
+    </>
+  );
+};
+
+// Banner 区域组件（带独立上传功能）
+const BannerSection: React.FC<{
+  game: GameKB;
+  isAdminLoggedIn: boolean;
+  onUpdateBannerImage: (imageUrl: string) => void;
+  onUpdateGame: (updatedGame: GameKB) => void;
+  onEditGame: () => void;
+}> = ({ game, isAdminLoggedIn, onUpdateBannerImage, onUpdateGame, onEditGame }) => {
+  // 优先使用 bannerImage，如果没有则使用 coverImage
+  const bannerImageUrl = game.bannerImage || game.coverImage;
+
+  const handleBannerClick = () => {
+    if (game.bannerLink) {
+      window.open(game.bannerLink, '_blank');
+    }
+  };
+
+  const handleTitleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (game.bannerLink) {
+      window.open(game.bannerLink, '_blank');
+    }
+  };
+
+  return (
+    <div 
+      className="relative h-56 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-r from-slate-200 to-slate-300"
+      onClick={handleBannerClick}
+      style={{ cursor: game.bannerLink ? 'pointer' : 'default' }}
+    >
+      <img 
+        src={bannerImageUrl} 
+        className="w-full h-full object-cover" 
+        alt={game.name} 
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-transparent"></div>
+      
+      {/* Banner 标题显示 */}
+      {game.bannerTitle && (
+        <div className="absolute bottom-0 left-0 right-0 p-6 z-10">
+          <div 
+            onClick={handleTitleClick}
+            className={`inline-block px-6 py-3 rounded-xl font-black text-xl text-white shadow-2xl backdrop-blur-sm border-2 border-white/30 ${
+              game.bannerLink ? 'hover:bg-white/20 cursor-pointer transition-all hover:scale-105' : ''
+            }`}
+            style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.1) 100%)',
+            }}
+          >
+            {game.bannerTitle}
+            {game.bannerLink && (
+              <span className="ml-2 text-sm opacity-80">🔗</span>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* 管理员操作按钮 */}
+      {isAdminLoggedIn && (
+        <div className="absolute top-4 right-4 flex gap-2 z-20">
+          <BannerUploadButton
+            game={game}
+            onUpdateBannerImage={onUpdateBannerImage}
+            onUpdateGame={onUpdateGame}
+          />
+          
+          {/* 编辑游戏按钮 */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEditGame();
+            }}
+            className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg transition-all"
+            title="編輯遊戲"
+          >
+            ✏️ 編輯遊戲
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// 子板块显示组件
+const KBSubItemDisplay: React.FC<{ subItem: KBSubItem; highlight?: boolean }> = ({ subItem, highlight }) => {
+  const containerStyle: React.CSSProperties = {};
+  if (subItem.backgroundColor) containerStyle.backgroundColor = subItem.backgroundColor;
+
+  return (
+    <div
+      id={`sub-${subItem.id}`}
+      className={`p-4 bg-white rounded-lg border mb-4 transition-all ${highlight ? 'border-orange-500 ring-2 ring-orange-200' : 'border-gray-200'}`}
+      style={containerStyle}
+    >
+      <h5 className="font-bold text-lg mb-3 text-slate-800">
+        {subItem.title}
+      </h5>
+      <div 
+        className="leading-relaxed mb-4"
+        dangerouslySetInnerHTML={{ __html: subItem.content || '' }}
+      />
+      
+      {/* 标签 */}
+      {subItem.tags && subItem.tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {subItem.tags.map((tag, idx) => (
+            <span key={idx} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-bold">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+      
+      {/* 单张图片 */}
+      {subItem.image && (
+        <ImageZoom imageUrl={subItem.image} alt={subItem.title} />
+      )}
+      
+      {/* 图册 */}
+      {subItem.imageGallery && subItem.imageGallery.length > 0 && (
+        <ImageGallery images={subItem.imageGallery} />
+      )}
+      
+      {/* 视频 */}
+      {subItem.video && (
+        <div className="my-4">
+          <div className="relative w-full rounded-xl overflow-hidden bg-gray-100" style={{ paddingBottom: '56.25%' }}>
+            <iframe
+              src={subItem.video}
+              className="absolute top-0 left-0 w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// 知识点显示组件
+const KBItemDisplay: React.FC<{ item: KBItem; highlightAnchor?: string }> = ({ item, highlightAnchor }) => {
+  const style: React.CSSProperties = {};
+  if (item.textColor) style.color = item.textColor;
+  if (item.backgroundColor) style.backgroundColor = item.backgroundColor;
+
+  // 如果有子板块，使用新的层级结构
+  if (item.subItems && item.subItems.length > 0) {
+    return (
+      <div
+        id={`item-${item.id}`}
+        className={`p-6 bg-gray-50 rounded-xl border hover:bg-white hover:shadow-md transition-all mb-6 ${highlightAnchor === `item-${item.id}` ? 'border-orange-500 ring-2 ring-orange-200' : 'border-gray-200'}`}
+        style={style}
+      >
+        <h4 className="font-bold text-2xl mb-6" style={{ color: item.textColor || 'inherit' }}>
+          {item.title}
+        </h4>
+        <div className="space-y-4">
+          {item.subItems.map((subItem) => (
+            <KBSubItemDisplay
+              key={subItem.id}
+              subItem={subItem}
+              highlight={highlightAnchor === `sub-${subItem.id}`}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // 兼容旧格式
+  return (
+    <div className="p-6 bg-gray-50 rounded-xl border border-gray-200 hover:bg-white hover:shadow-md transition-all" style={style}>
+      <h4 className="font-bold text-slate-800 text-lg mb-3" style={{ color: item.textColor || 'inherit' }}>
+        {item.title}
+      </h4>
+      <p className="text-slate-600 leading-relaxed mb-4" style={{ color: item.textColor || 'inherit' }}>
+        {item.content}
+      </p>
+      
+      {/* 单张图片 */}
+      {item.image && (
+        <ImageZoom imageUrl={item.image} alt={item.title} />
+      )}
+      
+      {/* 图册 */}
+      {item.imageGallery && item.imageGallery.length > 0 && (
+        <ImageGallery images={item.imageGallery} />
+      )}
+      
+      {/* 视频 */}
+      {item.video && (
+        <div className="my-4">
+          <div className="relative w-full rounded-xl overflow-hidden bg-gray-100" style={{ paddingBottom: '56.25%' }}>
+            <iframe
+              src={item.video}
+              className="absolute top-0 left-0 w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* 游戏更新情况 */}
+      {item.gameUpdateInfo && (
+        <div className="my-4 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-r-lg">
+          <h5 className="font-bold text-blue-800 mb-2">📢 遊戲更新情況</h5>
+          <p className="text-blue-700 leading-relaxed">{item.gameUpdateInfo}</p>
+        </div>
+      )}
+      
+      {/* 更多自定义内容 */}
+      {item.additionalContent && item.additionalContent.length > 0 && (
+        <div className="my-4 space-y-3">
+          {item.additionalContent.map((extra, idx) => (
+            <div key={idx} className="p-3 bg-gray-100 rounded-lg">
+              <h6 className="font-bold text-slate-700 text-sm mb-1">{extra.label}</h6>
+              <p className="text-slate-600 text-sm">{extra.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* 标签 */}
+      {item.tags && item.tags.length > 0 && (
+        <div className="flex gap-2 mt-4 flex-wrap">
+          {item.tags.map((tag, idx) => (
+            <span key={idx} className="px-2 py-1 bg-orange-100 text-orange-600 text-xs rounded-full">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// 从URL参数解析页面状态
+const parseUrlState = (pathname: string, games: GameKB[]): {
+  category: GameCategory | 'HOME' | 'ADMIN' | 'SEARCH';
+  gameId?: string;
+  section?: string;
+} => {
+  if (pathname === '/admin' || pathname.startsWith('/admin')) {
+    return { category: 'ADMIN' };
+  }
+  if (pathname === '/search') {
+    return { category: 'SEARCH' };
+  }
+  if (pathname.startsWith('/game/')) {
+    const parts = pathname.split('/');
+    const gameId = parts[2];
+    const section = parts[3] || undefined;
+    return { category: 'HOME', gameId, section };
+  }
+  if (pathname === '/online') {
+    return { category: GameCategory.ONLINE };
+  }
+  if (pathname === '/mobile') {
+    return { category: GameCategory.MOBILE };
+  }
+  return { category: 'HOME' };
+};
+
+const AppContent: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // 从localStorage加载游戏数据
+  const loadGamesFromStorage = (): GameKB[] => {
+    try {
+      const saved = localStorage.getItem('gamesData');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Failed to load games from storage:', e);
+    }
+    return INITIAL_GAMES;
+  };
+
+  // 保存游戏数据到localStorage
+  const saveGamesToStorage = (gamesData: GameKB[]) => {
+    try {
+      localStorage.setItem('gamesData', JSON.stringify(gamesData));
+    } catch (e) {
+      console.error('Failed to save games to storage:', e);
+    }
+  };
+
+  const [games, setGames] = useState<GameKB[]>(loadGamesFromStorage());
+  const [activeCategory, setActiveCategory] = useState<GameCategory | 'HOME' | 'ADMIN' | 'SEARCH'>('HOME');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedGame, setSelectedGame] = useState<GameKB | null>(null);
+  const [selectedGameSection, setSelectedGameSection] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<SectionType>(SectionType.CONTACT);
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [customSectionTypes, setCustomSectionTypes] = useState<CustomSectionType[]>(getCustomSectionTypes());
+  
+  // useEffect 已以 URL 为唯一真相，这个 ref 不再需要（保留可后续删除）
+  const lastPathnameRef = useRef<string>('');
+
+  // updateUrl 函数：更新 URL 路径（URL 作为唯一真相）
+  const updateUrl = (category: GameCategory | 'HOME' | 'ADMIN' | 'SEARCH', gameId?: string, section?: string, query?: string) => {
+    let path = '/';
+
+    if (category === 'ADMIN') {
+      path = '/admin';
+    } else if (category === 'SEARCH') {
+      const q = (query || '').trim();
+      path = q ? `/search?q=${encodeURIComponent(q)}` : '/search';
+    } else if (category === GameCategory.ONLINE) {
+      path = '/online';
+    } else if (category === GameCategory.MOBILE) {
+      path = '/mobile';
+    } else if (gameId) {
+      // 游戏详情/分区页必须使用 /game/...，不能复用 /mobile
+      path = section
+        ? `/game/${gameId}/${encodeURIComponent(section)}`
+        : `/game/${gameId}`;
+    }
+
+    navigate(path);
+  };
+
+  // 当games更新时，保存到localStorage
+  useEffect(() => {
+    saveGamesToStorage(games);
+  }, [games]);
+
+  // 根据 URL 更新状态：URL 是唯一真相
+  useEffect(() => {
+    const state = parseUrlState(location.pathname, games);
+
+    const url = new URL(window.location.href);
+    const q = url.searchParams.get('q') || '';
+
+    // /game/... 需要先有 games 才能定位到具体游戏
+    if (state.gameId && games.length === 0) {
+      return;
+    }
+
+    if (state.category === 'SEARCH') {
+      setSelectedGame(null);
+      setSelectedGameSection(null);
+      setActiveCategory('SEARCH');
+      setSearchQuery(q);
+      return;
+    }
+
+    if (state.gameId) {
+      const game = games.find(g => g.id === state.gameId) || null;
+      if (!game) {
+        navigate('/', { replace: true });
+        return;
+      }
+      setSelectedGame(game);
+      setSelectedGameSection(state.section ? decodeURIComponent(state.section) : null);
+      setActiveCategory(game.category);
+      return;
+    }
+
+    setSelectedGame(null);
+    setSelectedGameSection(null);
+    setActiveCategory(state.category);
+  }, [location.pathname, games, navigate]);
+
+
+  // 检查登录状态
+  useEffect(() => {
+    const checkLoginStatus = () => {
+      const loggedIn = localStorage.getItem('adminLoggedIn') === 'true';
+      const loginTime = localStorage.getItem('adminLoginTime');
+      
+      // 检查是否在24小时内登录（可选：设置登录过期时间）
+      if (loggedIn && loginTime) {
+        const timeDiff = Date.now() - parseInt(loginTime);
+        const hoursDiff = timeDiff / (1000 * 60 * 60);
+        
+        // 24小时后自动登出（可选）
+        if (hoursDiff < 24) {
+          setIsAdminLoggedIn(true);
+        } else {
+          localStorage.removeItem('adminLoggedIn');
+          localStorage.removeItem('adminLoginTime');
+          setIsAdminLoggedIn(false);
+        }
+      } else {
+        setIsAdminLoggedIn(false);
+      }
+    };
+
+    checkLoginStatus();
+  }, []);
+
+  const handleLogin = () => {
+    setIsAdminLoggedIn(true);
+    updateUrl('ADMIN');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminLoggedIn');
+    localStorage.removeItem('adminLoginTime');
+    setIsAdminLoggedIn(false);
+    if (activeCategory === 'ADMIN') {
+      setActiveCategory('HOME');
+      updateUrl('HOME');
+      return;
+    }
+  };
+
+  const renderSearchContent = () => {
+    if (activeCategory === 'SEARCH') {
+      const query = searchQuery.trim();
+
+      // 只需要每个游戏一个“最相关”的命中
+      const normalize = (s: string) => (s || '').toLowerCase();
+      const qn = normalize(query);
+
+      type Hit = {
+        gameId: string;
+        gameName: string;
+        gameCategory: GameCategory;
+        sectionType: string;
+        itemId: string;
+        itemTitle: string;
+        subItemId?: string;
+        subItemTitle?: string;
+        snippet: string;
+        matchSource: 'itemTitle' | 'subItemTitle' | 'subItemContent';
+        score: number;
+      };
+
+      const bestByGame = new Map<string, Hit>();
+
+      const calcScore = (src: Hit['matchSource']) => {
+        // 优先子版块标题 > 子版块内容 > 大标题
+        if (src === 'subItemTitle') return 30;
+        if (src === 'subItemContent') return 20;
+        return 10;
+      };
+
+      if (qn) {
+        games.forEach((g) => {
+          g.sections.forEach((sec) => {
+            const secName = String(sec.type);
+
+            sec.items.forEach((item) => {
+              // 大标题
+              if (normalize(item.title).includes(qn)) {
+                const hit: Hit = {
+                  gameId: g.id,
+                  gameName: g.name,
+                  gameCategory: g.category,
+                  sectionType: secName,
+                  itemId: item.id,
+                  itemTitle: item.title,
+                  snippet: item.title,
+                  matchSource: 'itemTitle',
+                  score: calcScore('itemTitle'),
+                };
+                const prev = bestByGame.get(g.id);
+                if (!prev || hit.score > prev.score) bestByGame.set(g.id, hit);
+              }
+
+              // 子版块
+              (item.subItems || []).forEach((sub) => {
+                const subTitleHit = normalize(sub.title).includes(qn);
+                const subContentHit = normalize(sub.content || '').includes(qn);
+
+                if (subTitleHit || subContentHit) {
+                  const src: Hit['matchSource'] = subTitleHit ? 'subItemTitle' : 'subItemContent';
+                  const hit: Hit = {
+                    gameId: g.id,
+                    gameName: g.name,
+                    gameCategory: g.category,
+                    sectionType: secName,
+                    itemId: item.id,
+                    itemTitle: item.title,
+                    subItemId: sub.id,
+                    subItemTitle: sub.title,
+                    snippet: subContentHit ? (sub.content || '').slice(0, 80) : sub.title,
+                    matchSource: src,
+                    score: calcScore(src),
+                  };
+
+                  const prev = bestByGame.get(g.id);
+                  if (!prev || hit.score > prev.score) bestByGame.set(g.id, hit);
+                }
+              });
+            });
+          });
+        });
+      }
+
+      const results = Array.from(bestByGame.values()).sort((a, b) => b.score - a.score);
+
+      return (
+        <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+          <div className="bg-white rounded-2xl shadow-lg p-8">
+            <h2 className="text-3xl font-black text-slate-800 mb-2">搜尋結果</h2>
+            <p className="text-slate-500 text-sm">關鍵字：<span className="font-black">{query || '（空）'}</span></p>
+
+            <div className="mt-6">
+              {query.trim().length === 0 ? (
+                <div className="text-slate-400 italic">請輸入關鍵字，例如「登入」</div>
+              ) : results.length === 0 ? (
+                <div className="text-slate-400 italic">未有搜到該內容</div>
+              ) : (
+                <div className="space-y-3">
+                  {results.map((m, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        // 只显示每个游戏一条：直接跳到最相关的命中位置
+                        const anchor = m.subItemId ? `sub-${m.subItemId}` : `item-${m.itemId}`;
+                        const q = searchQuery.trim();
+                        navigate(`/game/${m.gameId}/${encodeURIComponent(m.sectionType)}?anchor=${encodeURIComponent(anchor)}&q=${encodeURIComponent(q)}`);
+                      }}
+                      className="w-full text-left p-4 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all"
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="font-black text-slate-800">{m.gameName}</div>
+                        <div className="text-[10px] font-black px-2 py-1 rounded-full bg-gray-100 text-slate-600">{m.gameCategory}</div>
+                      </div>
+                      <div className="mt-1 text-sm font-bold text-orange-600">{m.sectionType}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {m.itemTitle}{m.subItemTitle ? ` / ${m.subItemTitle}` : ''}
+                      </div>
+                      <div className="mt-2 text-sm text-slate-600">{m.snippet}</div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const handleAddGame = (newGame: GameKB) => {
+    setGames([...games, newGame]);
+    setActiveCategory('HOME');
+    updateUrl('HOME');
+  };
+
+  const handleUpdateGame = (updatedGame: GameKB) => {
+    setGames(games.map(game => game.id === updatedGame.id ? updatedGame : game));
+  };
+
+  const handleUpdateGameSection = (gameId: string, sectionType: string, items: KBItem[]) => {
+    setGames(games.map(game => {
+      if (game.id === gameId) {
+        // 检查section是否存在，如果不存在则创建
+        const existingSection = game.sections.find(s => s.type === sectionType);
+        if (!existingSection) {
+          // 添加新的section
+          return {
+            ...game,
+            sections: [...game.sections, { type: sectionType as SectionType, items }]
+          };
+        }
+        // 更新现有section
+        return {
+          ...game,
+          sections: game.sections.map(section => 
+            section.type === sectionType 
+              ? { ...section, items }
+              : section
+          )
+        };
+      }
+      return game;
+    }));
+  };
+
+  const handleAddSectionType = (name: string) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+    
+    const allTypes = getAllAvailableSectionTypes();
+    if (allTypes.includes(trimmedName)) {
+      alert('該板塊類型已存在！');
+      return;
+    }
+    
+    const newAllTypes = [...allTypes, trimmedName];
+    saveAllSectionTypes(newAllTypes);
+    
+    // 更新customSectionTypes（用于显示）
+    const customTypes = getCustomSectionTypes();
+    const newCustomType: CustomSectionType = {
+      id: Date.now().toString(),
+      name: trimmedName
+    };
+    const updatedCustomTypes = [...customTypes, newCustomType];
+    setCustomSectionTypes(updatedCustomTypes);
+    
+    // 为所有游戏添加这个新的section
+    const updatedGames = games.map(game => ({
+      ...game,
+      sections: [...game.sections, { type: trimmedName as SectionType, items: [] }]
+    }));
+    setGames(updatedGames);
+    saveGamesToStorage(updatedGames);
+    
+    alert(`✅ 已新增板塊類型「${trimmedName}」！`);
+  };
+
+  const handleDeleteSectionType = (typeName: string) => {
+    if (!confirm(`確定要刪除「${typeName}」嗎？這將刪除所有遊戲中該板塊的所有知識點！`)) {
+      return;
+    }
+    
+    const allTypes = getAllAvailableSectionTypes();
+    const newAllTypes = allTypes.filter(t => t !== typeName);
+    saveAllSectionTypes(newAllTypes);
+    
+    // 更新customSectionTypes（用于显示）
+    const updatedCustomTypes = customSectionTypes.filter(t => t.name !== typeName);
+    setCustomSectionTypes(updatedCustomTypes);
+    
+    // 从所有游戏中删除这个section
+    const updatedGames = games.map(game => ({
+      ...game,
+      sections: game.sections.filter(s => s.type !== typeName)
+    }));
+    setGames(updatedGames);
+    saveGamesToStorage(updatedGames);
+    
+    alert(`✅ 已刪除板塊類型「${typeName}」！`);
+  };
+
+  const handleRenameSectionType = (oldName: string, newName: string) => {
+    const trimmedNewName = newName.trim();
+    if (!trimmedNewName) {
+      alert('名稱不能為空！');
+      return;
+    }
+    
+    if (trimmedNewName === oldName) {
+      return;
+    }
+
+    const allTypes = getAllAvailableSectionTypes();
+    if (allTypes.includes(trimmedNewName)) {
+      alert('該板塊類型名稱已存在！');
+      return;
+    }
+
+    // 更新全局板块类型列表
+    const newAllTypes = allTypes.map(t => t === oldName ? trimmedNewName : t);
+    saveAllSectionTypes(newAllTypes);
+    
+    // 更新customSectionTypes（用于显示）
+    const updatedCustomTypes = customSectionTypes.map(t => 
+      t.name === oldName ? { ...t, name: trimmedNewName } : t
+    );
+    setCustomSectionTypes(updatedCustomTypes);
+    
+    // 更新所有游戏中的板块类型名称
+    const updatedGames = games.map(game => ({
+      ...game,
+      sections: game.sections.map(section => 
+        section.type === oldName 
+          ? { ...section, type: trimmedNewName as SectionType }
+          : section
+      )
+    }));
+    setGames(updatedGames);
+    saveGamesToStorage(updatedGames);
+    
+    alert(`✅ 已將「${oldName}」重命名為「${trimmedNewName}」！`);
+  };
+
+  // 保持向后兼容
+  const handleAddCustomSectionType = (name: string) => {
+    handleAddSectionType(name);
+  };
+
+  const handleDeleteCustomSectionType = (id: string) => {
+    const typeToDelete = customSectionTypes.find(t => t.id === id);
+    if (typeToDelete) {
+      handleDeleteSectionType(typeToDelete.name);
+    }
+  };
+
+  // 获取游戏排序（从localStorage）
+  const getGameOrder = (): string[] => {
+    return JSON.parse(localStorage.getItem('gameOrder') || '[]') as string[];
+  };
+
+  // 保存游戏排序
+  const saveGameOrder = (order: string[]) => {
+    localStorage.setItem('gameOrder', JSON.stringify(order));
+  };
+
+  // 根据排序对游戏进行排序
+  const getSortedGames = (gameList: GameKB[]): GameKB[] => {
+    const order = getGameOrder();
+    if (order.length === 0) return gameList;
+    
+    const ordered: GameKB[] = [];
+    const unordered: GameKB[] = [];
+    
+    // 先按顺序添加
+    order.forEach(id => {
+      const game = gameList.find(g => g.id === id);
+      if (game) ordered.push(game);
+    });
+    
+    // 再添加未排序的
+    gameList.forEach(game => {
+      if (!order.includes(game.id)) {
+        unordered.push(game);
+      }
+    });
+    
+    return [...ordered, ...unordered];
+  };
+
+  const handleMoveGame = (gameId: string, direction: 'up' | 'down', category?: GameCategory) => {
+    const gameList = category 
+      ? games.filter(g => g.category === category)
+      : activeCategory === 'HOME' 
+        ? games 
+        : games.filter(g => g.category === activeCategory);
+    
+    const sortedGames = getSortedGames(gameList);
+    const currentIndex = sortedGames.findIndex(g => g.id === gameId);
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= sortedGames.length) return;
+    
+    // 交换位置
+    const currentOrder = getGameOrder();
+    const allGameIds = games.map(g => g.id);
+    let newOrder = [...currentOrder];
+    
+    // 确保所有游戏ID都在order中
+    allGameIds.forEach(id => {
+      if (!newOrder.includes(id)) {
+        newOrder.push(id);
+      }
+    });
+    
+    // 交换位置
+    const gameId1 = sortedGames[currentIndex].id;
+    const gameId2 = sortedGames[newIndex].id;
+    const index1 = newOrder.indexOf(gameId1);
+    const index2 = newOrder.indexOf(gameId2);
+    [newOrder[index1], newOrder[index2]] = [newOrder[index2], newOrder[index1]];
+    
+    saveGameOrder(newOrder);
+    // 触发重新渲染
+    setGames([...games]);
+  };
+
+  const filteredGames = activeCategory === 'HOME' 
+    ? games 
+    : games.filter(g => g.category === activeCategory);
+  
+  const sortedFilteredGames = getSortedGames(filteredGames);
+
+  const renderContent = () => {
+    // 搜索页
+    if (activeCategory === 'SEARCH') {
+      return renderSearchContent();
+    }
+
+    // 优先检查 selectedGame，确保游戏详情页优先显示
+    if (selectedGame) {
+      // 获取所有板块类型（包括自定义的）
+      const gameSectionButtons = getAllSectionTypes();
+
+      // 如果选择了某个分类，显示该分类的内容
+      if (selectedGameSection) {
+        const url = new URL(window.location.href);
+        const highlightAnchor = url.searchParams.get('anchor') || undefined;
+        const section = selectedGame.sections.find(s => s.type === selectedGameSection);
+        const gameSectionButtons = getAllSectionTypes();
+
+        // 自动滚动定位（用于搜索结果点击后）
+        if (highlightAnchor) {
+          setTimeout(() => {
+            const el = document.getElementById(highlightAnchor);
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 50);
+        }
+
+        return (
+          <div className="space-y-6 animate-in fade-in zoom-in-95 duration-500">
+            <button
+              onClick={() => updateUrl('HOME', selectedGame.id)}
+              className="text-orange-600 font-bold text-sm hover:underline"
+            >
+              ← 返回遊戲首頁
+            </button>
+
+            {/* Banner 区域 - 可以替换为自定义图片 */}
+            <BannerSection 
+              game={selectedGame}
+              isAdminLoggedIn={isAdminLoggedIn}
+              onUpdateBannerImage={(imageUrl) => {
+                const updatedGame = { ...selectedGame, bannerImage: imageUrl };
+                handleUpdateGame(updatedGame);
+                setSelectedGame(updatedGame);
+              }}
+              onUpdateGame={(updatedGame) => {
+                handleUpdateGame(updatedGame);
+                setSelectedGame(updatedGame);
+              }}
+              onEditGame={() => {
+                const gameToEdit = games.find(g => g.id === selectedGame.id);
+                if (gameToEdit) {
+                  // 先滚动到页面顶部
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  setActiveCategory('ADMIN');
+                  updateUrl('ADMIN');
+                  setTimeout(() => {
+                    const gameCard = document.querySelector(`[data-game-id="${selectedGame.id}"]`);
+                    if (gameCard) {
+                      gameCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      const editButton = gameCard.querySelector('button') as HTMLButtonElement;
+                      if (editButton && editButton.textContent?.includes('編輯')) {
+                        editButton.click();
+                      }
+                    }
+                  }, 300);
+                }
+              }}
+            />
+
+            {/* 分类切换按钮 - 等间距排布 */}
+            <div className="flex justify-between gap-4 overflow-x-auto pb-2 scrollbar-hide">
+              {gameSectionButtons.map((sectionType) => {
+                const sectionData = selectedGame.sections.find(s => s.type === sectionType);
+                const hasContent = sectionData && sectionData.items.length > 0;
+                const isActive = selectedGameSection === sectionType;
+                return (
+                  <button
+                    key={sectionType}
+                    onClick={() => {
+                      if (hasContent && selectedGame) {
+                        updateUrl('HOME', selectedGame.id, sectionType);
+                      }
+                    }}
+                    className={`flex-1 px-6 py-3 rounded-xl font-bold text-base whitespace-nowrap transition-all ${
+                      isActive
+                        ? 'bg-gradient-to-r from-pink-500 to-red-500 text-white shadow-lg'
+                        : hasContent
+                        ? 'bg-white text-slate-600 hover:bg-gray-100 shadow-sm'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    }`}
+                    disabled={!hasContent}
+                  >
+                    {sectionType}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* 内容区域 */}
+            <div className="bg-white rounded-2xl shadow-lg p-8 min-h-[500px]">
+              <h2 className="text-3xl font-black text-slate-800 mb-6 flex items-center gap-3">
+                <span className="w-2 h-8 bg-gradient-to-b from-pink-500 to-red-500 rounded-full"></span>
+                {selectedGameSection}
+              </h2>
+              <div className="space-y-4">
+                {section && section.items.length > 0 ? section.items.map(item => (
+                  <KBItemDisplay key={item.id} item={item} highlightAnchor={highlightAnchor} />
+                )) : (
+                  <div className="py-20 text-center text-slate-400 italic">
+                    <p className="text-lg">暫無知識點</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // 显示游戏板块和按钮（游戏详情页）
+      const gameBannerImage = selectedGame.bannerImage || selectedGame.coverImage;
+      return (
+        <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+          <button 
+            onClick={() => {
+              // 游戏详情页返回到所属分类列表
+              updateUrl(selectedGame.category);
+            }}
+            className="text-orange-600 font-bold text-sm hover:underline"
+          >
+            ← 返回{selectedGame.category}
+          </button>
+          
+          <div 
+            className="relative h-64 rounded-3xl overflow-hidden shadow-xl border-4 border-white"
+            onClick={() => {
+              if (selectedGame.bannerLink) {
+                window.open(selectedGame.bannerLink, '_blank');
+              }
+            }}
+            style={{ cursor: selectedGame.bannerLink ? 'pointer' : 'default' }}
+          >
+            <img src={gameBannerImage} className="w-full h-full object-cover" alt={selectedGame.name} />
+            <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/20 to-transparent flex items-center p-12">
+              <div className="flex-1">
+                <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-[10px] font-black mb-3 inline-block">
+                  {selectedGame.category}
+                </span>
+                <h2 className="text-5xl font-black text-slate-800 acg-title">{selectedGame.name}</h2>
+                {selectedGame.bannerTitle && (
+                  <div 
+                    className="mt-4 inline-block px-6 py-2 bg-white/80 backdrop-blur-sm rounded-xl font-black text-lg text-slate-800 shadow-lg border-2 border-white/50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (selectedGame.bannerLink) {
+                        window.open(selectedGame.bannerLink, '_blank');
+                      }
+                    }}
+                    style={{ cursor: selectedGame.bannerLink ? 'pointer' : 'default' }}
+                  >
+                    {selectedGame.bannerTitle}
+                    {selectedGame.bannerLink && (
+                      <span className="ml-2 text-sm opacity-60">🔗</span>
+                    )}
+                  </div>
+                )}
+              </div>
+              {isAdminLoggedIn && (
+                <div className="flex gap-2">
+                  <BannerUploadButton
+                    game={selectedGame}
+                    onUpdateBannerImage={(imageUrl) => {
+                      const updatedGame = { ...selectedGame, bannerImage: imageUrl };
+                      handleUpdateGame(updatedGame);
+                      setSelectedGame(updatedGame);
+                    }}
+                    onUpdateGame={(updatedGame) => {
+                      handleUpdateGame(updatedGame);
+                      setSelectedGame(updatedGame);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 游戏板块按钮 */}
+          <div className="grid grid-cols-2 gap-4 mt-8">
+            {gameSectionButtons.map((sectionType) => {
+              const section = selectedGame.sections.find(s => s.type === sectionType);
+              const hasContent = section && section.items.length > 0;
+              return (
+                <button
+                  key={sectionType}
+                  onClick={() => updateUrl('HOME', selectedGame.id, sectionType)}
+                  className={`w-full py-4 rounded-2xl font-bold text-lg transition-all ${
+                    hasContent 
+                      ? 'bg-gradient-to-r from-pink-500 to-red-500 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]' 
+                      : 'bg-gradient-to-r from-pink-200 to-red-200 text-pink-300 cursor-not-allowed'
+                  }`}
+                  disabled={!hasContent}
+                >
+                  {sectionType}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    // 管理页
+    if (activeCategory === 'ADMIN') {
+      if (!isAdminLoggedIn) {
+        return <Login onLogin={handleLogin} />;
+      }
+      return <AdminPanel 
+        games={games} 
+        onAddGame={handleAddGame} 
+        onUpdateGame={handleUpdateGame}
+        onUpdateGameSection={handleUpdateGameSection}
+        onLogout={handleLogout}
+        customSectionTypes={customSectionTypes}
+        onAddCustomSectionType={handleAddCustomSectionType}
+        onDeleteCustomSectionType={handleDeleteCustomSectionType}
+        editingGameId={selectedGame?.id}
+        getAllSectionTypes={getAllSectionTypes}
+        onAddSectionType={handleAddSectionType}
+        onDeleteSectionType={handleDeleteSectionType}
+        onRenameSectionType={handleRenameSectionType}
+      />;
+    }
+
+    // 分类列表页
+    if (activeCategory === GameCategory.ONLINE) {
+      const onlineGames = games.filter(g => g.category === GameCategory.ONLINE);
+      return (
+        <div className="space-y-12 animate-in fade-in zoom-in-95 duration-500">
+          <section className="text-center space-y-4">
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <span className="w-2 h-12 bg-orange-600 rounded-full"></span>
+              <h1 className="text-6xl font-black text-slate-800 acg-title">線上遊戲</h1>
+            </div>
+          </section>
+
+          {onlineGames.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {getSortedGames(onlineGames).map((game, index) => (
+                <div key={game.id} className="relative group glass-card rounded-[2.5rem] overflow-hidden">
+                  <div
+                    onClick={() => updateUrl('HOME', game.id)}
+                    className="cursor-pointer"
+                  >
+                    <div className="h-56 relative overflow-hidden">
+                      <img src={game.coverImage} className="w-full h-full object-cover" alt={game.name} />
+                    </div>
+                    <div className="p-8">
+                      <h3 className="text-2xl font-black text-slate-800 mb-4">{game.name}</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {getAllSectionTypes().map((sectionType) => {
+                          const section = game.sections.find(s => s.type === sectionType);
+                          const hasContent = section && section.items.length > 0;
+                          return (
+                            <button
+                              key={sectionType}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (hasContent) {
+                                  updateUrl('HOME', game.id, sectionType);
+                                } else {
+                                  updateUrl('HOME', game.id);
+                                }
+                              }}
+                              className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all ${
+                                hasContent 
+                                  ? 'bg-gradient-to-r from-pink-500 to-red-500 text-white'
+                                  : 'bg-gradient-to-r from-pink-200 to-red-200 text-pink-300 cursor-not-allowed'
+                              }`}
+                              disabled={!hasContent}
+                            >
+                              {sectionType}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-20">
+              <p className="text-slate-400 text-lg">暫無線上遊戲資料</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (activeCategory === GameCategory.MOBILE) {
+      const mobileGames = games.filter(g => g.category === GameCategory.MOBILE);
+      return (
+        <div className="space-y-12 animate-in fade-in zoom-in-95 duration-500">
+          <section className="text-center space-y-4">
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <span className="w-2 h-12 bg-blue-600 rounded-full"></span>
+              <h1 className="text-6xl font-black text-slate-800 acg-title">手機遊戲</h1>
+            </div>
+          </section>
+
+          {mobileGames.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {getSortedGames(mobileGames).map((game, index) => (
+                <div key={game.id} className="relative group glass-card rounded-[2.5rem] overflow-hidden">
+                  <div className="cursor-pointer">
+                    <div 
+                      className="h-56 relative overflow-hidden"
+                      onClick={(e) => {
+                        if (game.officialWebsite) {
+                          e.stopPropagation();
+                          window.open(game.officialWebsite, '_blank');
+                        } else {
+                          updateUrl('HOME', game.id);
+                        }
+                      }}
+                    >
+                      <img src={game.coverImage} className="w-full h-full object-cover" alt={game.name} />
+                    </div>
+                    <div className="p-8">
+                      <h3 className="text-2xl font-black text-slate-800 mb-4" onClick={() => updateUrl('HOME', game.id)}>{game.name}</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        {getAllSectionTypes().map((sectionType) => {
+                          const section = game.sections.find(s => s.type === sectionType);
+                          const hasContent = section && section.items.length > 0;
+                          return (
+                            <button
+                              key={sectionType}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (hasContent) {
+                                  updateUrl('HOME', game.id, sectionType);
+                                } else {
+                                  updateUrl('HOME', game.id);
+                                }
+                              }}
+                              className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all ${
+                                hasContent 
+                                  ? 'bg-gradient-to-r from-pink-500 to-red-500 text-white'
+                                  : 'bg-gradient-to-r from-pink-200 to-red-200 text-pink-300 cursor-not-allowed'
+                              }`}
+                              disabled={!hasContent}
+                            >
+                              {sectionType}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-20">
+              <p className="text-slate-400 text-lg">暫無手機遊戲資料</p>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // 首页
+    return (
+      <div className="space-y-16">
+        <section className="text-center space-y-4">
+          <h1 className="text-6xl font-black text-slate-800 acg-title">遊戲知識庫</h1>
+        </section>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div 
+            onClick={() => updateUrl(GameCategory.ONLINE)}
+            className="group relative h-72 rounded-[2.5rem] overflow-hidden cursor-pointer glass-card"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-orange-400/20 to-transparent z-10"></div>
+            <img 
+              src="https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=2070&auto=format&fit=crop" 
+              className="absolute inset-0 w-full h-full object-cover opacity-60" 
+              alt="Online" 
+            />
+            <div className="absolute inset-0 p-10 z-20 flex flex-col justify-between">
+              <h2 className="text-4xl font-black text-slate-800 flex items-center gap-4">
+                <span className="w-2 h-10 bg-orange-600 rounded-full"></span>
+                線上遊戲
+              </h2>
+            </div>
+          </div>
+
+          <div 
+            onClick={() => updateUrl(GameCategory.MOBILE)}
+            className="group relative h-72 rounded-[2.5rem] overflow-hidden cursor-pointer glass-card"
+          >
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-transparent z-10"></div>
+            <img 
+              src="https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=2070&auto=format&fit=crop" 
+              className="absolute inset-0 w-full h-full object-cover opacity-60" 
+              alt="Mobile" 
+            />
+            <div className="absolute inset-0 p-10 z-20 flex flex-col justify-between">
+              <h2 className="text-4xl font-black text-slate-800 flex items-center gap-4">
+                <span className="w-2 h-10 bg-blue-600 rounded-full"></span>
+                手機遊戲
+              </h2>
+            </div>
+          </div>
+        </div>
+
+        <section className="space-y-10 pt-12">
+          <div className="flex items-end justify-between">
+            <h2 className="text-3xl font-black text-slate-800 flex items-center gap-4">
+              <span className="w-2 h-10 btn-orange rounded-full"></span>
+              全部遊戲板塊
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            {sortedFilteredGames.map((game, index) => (
+              <div key={game.id} className="relative group glass-card rounded-[2.5rem] overflow-hidden">
+                <div className="cursor-pointer">
+                  <div 
+                    className="h-56 relative overflow-hidden"
+                    onClick={(e) => {
+                      if (game.officialWebsite) {
+                        e.stopPropagation();
+                        window.open(game.officialWebsite, '_blank');
+                      } else {
+                        updateUrl('HOME', game.id);
+                      }
+                    }}
+                  >
+                    <img src={game.coverImage} className="w-full h-full object-cover" alt={game.name} />
+                    {game.officialWebsite && (
+                      <div className="absolute bottom-4 left-4 bg-black/70 text-white px-4 py-2 rounded-full text-xs font-bold backdrop-blur-sm">
+                        🌐 點擊前往官網
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-8">
+                    <h3 
+                      className="text-2xl font-black text-slate-800 mb-4 cursor-pointer"
+                      onClick={() => {
+                        if (game.officialWebsite) {
+                          window.open(game.officialWebsite, '_blank');
+                        } else {
+                          updateUrl('HOME', game.id);
+                        }
+                      }}
+                    >
+                      {game.name}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {getAllSectionTypes().map((sectionType) => {
+                        const section = game.sections.find(s => s.type === sectionType);
+                        const hasContent = section && section.items.length > 0;
+                        return (
+                          <button
+                            key={sectionType}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (hasContent) {
+                                updateUrl('HOME', game.id, sectionType);
+                              } else {
+                                updateUrl('HOME', game.id);
+                              }
+                            }}
+                            className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all ${
+                              hasContent 
+                                ? 'bg-gradient-to-r from-pink-500 to-red-500 text-white'
+                                : 'bg-gradient-to-r from-pink-200 to-red-200 text-pink-300 cursor-not-allowed'
+                            }`}
+                            disabled={!hasContent}
+                          >
+                            {sectionType}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  };
+
+  return (
+    <Layout 
+      activeCategory={activeCategory} 
+      setActiveCategory={(cat) => { 
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        updateUrl(cat);
+      }}
+      searchQuery={searchQuery}
+      onSearch={(q) => {
+        setSearchQuery(q);
+        updateUrl('SEARCH', undefined, undefined, q);
+      }}
+      gameName={selectedGame ? selectedGame.name : undefined}
+      onBackToHome={() => {}}
+      isAdminLoggedIn={isAdminLoggedIn}
+      selectedGame={selectedGame}
+      onEditGame={(game) => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        updateUrl('ADMIN');
+        setTimeout(() => {
+          const adminPanel = document.querySelector(`[data-game-id="${game.id}"]`);
+          if (adminPanel) {
+            adminPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 300);
+      }}
+    >
+      {renderContent()}
+    </Layout>
+  );
+};
+
+const App: React.FC = () => {
+  return <AppContent />;
+};
+
+export default App;

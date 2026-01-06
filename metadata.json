@@ -1,0 +1,8 @@
+
+{
+  "name": "8591 遊戲專業知識庫",
+  "description": "為提升客服專業能力而設計的知識庫",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
