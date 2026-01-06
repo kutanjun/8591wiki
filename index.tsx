@@ -12,7 +12,7 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <BrowserRouter basename={import.meta.env.DEV ? '/' : '/gamewiki'}>
+    <BrowserRouter basename={import.meta.env.DEV ? '/' : '/8591wiki'}>
       <App />
     </BrowserRouter>
   </React.StrictMode>
