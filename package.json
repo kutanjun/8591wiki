@@ -2,7 +2,7 @@
   "name": "8591 遊戲專業知識庫",
   "private": true,
   "version": "0.0.0",
-  "homepage": "https://kutanjun.github.io/gamewiki/",
+  "homepage": "https://kutanjun.github.io/8591wiki/",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -5,7 +5,7 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode, command }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      base: command === 'serve' ? '/' : '/gamewiki/',
+      base: command === 'serve' ? '/' : '/8591wiki/',
       server: {
         port: 3000,
         host: '0.0.0.0',
