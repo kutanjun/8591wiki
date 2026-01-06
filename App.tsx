@@ -196,7 +196,12 @@ const AppContent: React.FC = () => {
   }, [hotGameIds]);
 
   useEffect(() => {
-    localStorage.setItem('banners', JSON.stringify(banners));
+    try {
+      localStorage.setItem('banners', JSON.stringify(banners));
+    } catch (e) {
+      console.error('Failed to save banners to storage:', e);
+      alert('Banner 圖片過大或存儲空間不足，請刪除部分或壓縮後重試');
+    }
   }, [banners]);
 
   useEffect(() => {
@@ -1029,6 +1034,22 @@ const AppContent: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {getSortedGames(onlineGames).map((game, index) => (
                 <div key={game.id} className="relative group glass-card rounded-[2.5rem] overflow-hidden">
+                  {isAdminLoggedIn && (
+                    <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMoveGame(game.id, 'up', GameCategory.ONLINE); }}
+                        className="px-2 py-1 bg-black/60 text-white rounded-md text-xs"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMoveGame(game.id, 'down', GameCategory.ONLINE); }}
+                        className="px-2 py-1 bg-black/60 text-white rounded-md text-xs"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  )}
                   <div
                     onClick={() => handleGameClick(game)}
                     className="cursor-pointer"
@@ -1094,6 +1115,22 @@ const AppContent: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {getSortedGames(mobileGames).map((game, index) => (
                 <div key={game.id} className="relative group glass-card rounded-[2.5rem] overflow-hidden">
+                  {isAdminLoggedIn && (
+                    <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMoveGame(game.id, 'up', GameCategory.MOBILE); }}
+                        className="px-2 py-1 bg-black/60 text-white rounded-md text-xs"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMoveGame(game.id, 'down', GameCategory.MOBILE); }}
+                        className="px-2 py-1 bg-black/60 text-white rounded-md text-xs"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  )}
                   <div className="cursor-pointer">
                     <div 
                       className="h-56 relative overflow-hidden"
@@ -1166,6 +1203,22 @@ const AppContent: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {getSortedGames(steamGames).map((game, index) => (
                 <div key={game.id} className="relative group glass-card rounded-[2.5rem] overflow-hidden">
+                  {isAdminLoggedIn && (
+                    <div className="absolute top-2 right-2 z-20 flex flex-col gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMoveGame(game.id, 'up', GameCategory.STEAM); }}
+                        className="px-2 py-1 bg-black/60 text-white rounded-md text-xs"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleMoveGame(game.id, 'down', GameCategory.STEAM); }}
+                        className="px-2 py-1 bg-black/60 text-white rounded-md text-xs"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  )}
                   <div className="cursor-pointer">
                     <div 
                       className="h-56 relative overflow-hidden"
