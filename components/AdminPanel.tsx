@@ -68,6 +68,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
   // Banner Form State
   const [newBannerImage, setNewBannerImage] = useState('');
+  const [newBannerImageUrl, setNewBannerImageUrl] = useState('');
   const [newBannerLink, setNewBannerLink] = useState('');
   const [newBannerTitle, setNewBannerTitle] = useState('');
   const [isUploadingBanner, setIsUploadingBanner] = useState(false);
@@ -395,9 +396,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                           onChange={handleBannerFileChange}
                           className="hidden"
                         />
-                        {newBannerImage && (
+                        {(newBannerImage || newBannerImageUrl) && (
                           <img 
-                            src={newBannerImage} 
+                            src={newBannerImage || newBannerImageUrl} 
                             alt="Preview" 
                             className="w-full h-32 object-cover rounded-xl border-2 border-gray-200"
                           />
@@ -406,6 +407,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
 
                      {/* Link Input & Add Button */}
                      <div className="flex-1 w-full flex flex-col gap-3">
+                        <input
+                          type="url"
+                          value={newBannerImageUrl}
+                          onChange={(e) => setNewBannerImageUrl(e.target.value)}
+                          placeholder="圖片URL（可選，使用外部鏈接可避免亂碼）"
+                          className="w-full px-4 py-3 bg-white rounded-xl border-2 border-blue-200 outline-none focus:border-blue-400 font-bold"
+                        />
                         <input
                           type="text"
                           value={newBannerTitle}
@@ -422,8 +430,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                         />
                         <button
                           onClick={() => {
-                            if (!newBannerImage) {
-                              alert('請先上傳圖片！');
+                            if (!newBannerImage && !newBannerImageUrl) {
+                              alert('請先上傳圖片或填寫圖片URL！');
                               return;
                             }
                             if (banners.length >= 5) {
@@ -432,16 +440,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                             }
                             const newBanner: BannerItem = {
                               id: Date.now().toString(),
-                              imageUrl: newBannerImage,
+                              imageUrl: newBannerImage || newBannerImageUrl,
                               linkUrl: newBannerLink.trim() || undefined,
                               title: newBannerTitle.trim() || undefined
                             };
                             onUpdateBanners([...banners, newBanner]);
                             setNewBannerImage('');
+                            setNewBannerImageUrl('');
                             setNewBannerLink('');
                             setNewBannerTitle('');
                           }}
-                          disabled={!newBannerImage || banners.length >= 5}
+                          disabled={(!newBannerImage && !newBannerImageUrl) || banners.length >= 5}
                           className="w-full py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           ➕ 添加 Banner

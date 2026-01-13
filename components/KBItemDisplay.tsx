@@ -9,7 +9,6 @@ interface KBItemDisplayProps {
 
 const KBItemDisplay: React.FC<KBItemDisplayProps> = ({ item, highlightAnchor }) => {
   const style: React.CSSProperties = {};
-  if (item.textColor) style.color = item.textColor;
   if (item.backgroundColor) style.backgroundColor = item.backgroundColor;
 
   // 如果有子板块，使用新的层级结构
@@ -43,7 +42,7 @@ const KBItemDisplay: React.FC<KBItemDisplayProps> = ({ item, highlightAnchor }) 
         {item.title}
       </h4>
       <div 
-        className="leading-relaxed text-slate-600"
+        className="leading-relaxed text-slate-600 whitespace-pre-wrap"
         dangerouslySetInnerHTML={{ __html: item.content }}
       />
     </div>

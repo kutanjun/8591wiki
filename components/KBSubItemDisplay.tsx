@@ -8,6 +8,22 @@ interface KBSubItemDisplayProps {
   highlight?: boolean;
 }
 
+const getEmbedUrl = (url: string | undefined) => {
+  if (!url) return '';
+  try {
+    // Handle YouTube watch URLs
+    const youtubeMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&?\/]+)/);
+    if (youtubeMatch && youtubeMatch[1]) {
+      return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+    }
+    // Return original URL if it's not a YouTube watch link
+    return url;
+  } catch (e) {
+    console.error('Error parsing video URL:', e);
+    return '';
+  }
+};
+
 const KBSubItemDisplay: React.FC<KBSubItemDisplayProps> = ({ subItem, highlight }) => {
   const containerStyle: React.CSSProperties = {};
   if (subItem.backgroundColor) containerStyle.backgroundColor = subItem.backgroundColor;
@@ -18,11 +34,14 @@ const KBSubItemDisplay: React.FC<KBSubItemDisplayProps> = ({ subItem, highlight 
       className={`p-4 bg-white rounded-lg border mb-4 transition-all ${highlight ? 'border-orange-500 ring-2 ring-orange-200' : 'border-gray-200'}`}
       style={containerStyle}
     >
-      <h5 className="font-bold text-lg mb-3 text-slate-800">
+      <h5 
+        className="font-bold text-lg mb-3 text-slate-800"
+        style={{ color: subItem.textColor || 'inherit' }}
+      >
         {subItem.title}
       </h5>
       <div 
-        className="leading-relaxed mb-4"
+        className="leading-relaxed mb-4 whitespace-pre-wrap"
         dangerouslySetInnerHTML={{ __html: subItem.content || '' }}
       />
       
@@ -52,7 +71,7 @@ const KBSubItemDisplay: React.FC<KBSubItemDisplayProps> = ({ subItem, highlight 
         <div className="my-4">
           <div className="relative w-full rounded-xl overflow-hidden bg-gray-100" style={{ paddingBottom: '56.25%' }}>
             <iframe
-              src={subItem.video}
+              src={getEmbedUrl(subItem.video)}
               className="absolute top-0 left-0 w-full h-full"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen

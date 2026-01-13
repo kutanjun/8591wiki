@@ -3,8 +3,12 @@ import React, { useState } from 'react';
 const ImageZoom: React.FC<{ imageUrl: string; alt: string }> = ({ imageUrl, alt }) => {
   const [isZoomed, setIsZoomed] = useState(false);
 
+  const [hasError, setHasError] = useState(false);
+
   const handleImageClick = () => {
-    setIsZoomed(true);
+    if (!hasError) {
+      setIsZoomed(true);
+    }
   };
 
   const handleCloseZoom = (e: React.MouseEvent) => {
@@ -19,20 +23,30 @@ const ImageZoom: React.FC<{ imageUrl: string; alt: string }> = ({ imageUrl, alt 
     }
   };
 
+  if (hasError) {
+    return (
+      <div className="my-4 p-4 bg-red-50 rounded-xl border border-red-200 text-red-500 text-sm font-bold flex items-center gap-2">
+        <span>⚠️ 圖片加載失敗，請檢查 URL 是否正確</span>
+        <a href={imageUrl} target="_blank" rel="noreferrer" className="underline ml-2">
+          在新窗口打開查看
+        </a>
+      </div>
+    );
+  }
+
   return (
     <>
-      <div className="my-4 cursor-pointer hover:opacity-90 transition-opacity" onClick={handleImageClick}>
-        <div className="relative">
+      <div className="my-4 cursor-pointer hover:opacity-90 transition-opacity group" onClick={handleImageClick}>
+        <div className="relative inline-block w-full">
           <img 
             src={imageUrl} 
             alt={alt}
-            className="w-full rounded-xl border border-gray-200"
+            referrerPolicy="no-referrer"
+            className="w-full rounded-xl border border-gray-200 bg-slate-50"
             style={{ maxHeight: '600px', objectFit: 'contain' }}
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
+            onError={() => setHasError(true)}
           />
-          <div className="absolute top-2 left-2 bg-black/50 text-white px-3 py-1 rounded-full text-xs">
+          <div className="absolute top-2 left-2 bg-black/50 text-white px-3 py-1 rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity">
             點擊放大
           </div>
         </div>
@@ -55,6 +69,7 @@ const ImageZoom: React.FC<{ imageUrl: string; alt: string }> = ({ imageUrl, alt 
           <img
             src={imageUrl}
             alt={alt}
+            referrerPolicy="no-referrer"
             className="max-w-full max-h-full w-auto h-auto object-contain"
             onClick={(e) => e.stopPropagation()}
             onError={(e) => {

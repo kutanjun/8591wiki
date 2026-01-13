@@ -56,6 +56,11 @@ const GameEditor: React.FC<GameEditorProps> = ({
   const [editingSectionTypeName, setEditingSectionTypeName] = useState<string | null>(null);
   const [editingSectionTypeNewName, setEditingSectionTypeNewName] = useState<string>('');
 
+  // Table Modal State
+  const [showTableModal, setShowTableModal] = useState(false);
+  const [tableRows, setTableRows] = useState(3);
+  const [tableCols, setTableCols] = useState(3);
+
   useEffect(() => {
     setEditedGame(game);
   }, [game]);
@@ -200,7 +205,8 @@ const GameEditor: React.FC<GameEditorProps> = ({
       title: '',
       author: 'Admin',
       updatedAt: new Date().toISOString().split('T')[0],
-      subItems: []
+      subItems: [],
+      textColor: '#FF5722'
     };
     setEditingItem(newItem);
     setImageGalleryText('');
@@ -222,7 +228,8 @@ const GameEditor: React.FC<GameEditorProps> = ({
       id: Date.now().toString(),
       title: '',
       content: '',
-      tags: []
+      tags: [],
+      textColor: '#FF5722'
     };
     setEditingSubItem(newSubItem);
     setSubItemImageGalleryText('');
@@ -464,6 +471,107 @@ const GameEditor: React.FC<GameEditorProps> = ({
 
     return (
       <div className="max-w-4xl mx-auto mt-6">
+        {/* Table Generator Modal */}
+        {showTableModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border-4 border-white transform transition-all scale-100">
+              <h4 className="text-2xl font-black text-slate-800 mb-6 text-center">插入表格</h4>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2">行數 (Rows)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={tableRows}
+                    onChange={(e) => setTableRows(parseInt(e.target.value) || 1)}
+                    className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-2 border-transparent outline-none focus:bg-white focus:border-purple-400 mt-2 text-slate-700 font-bold text-center text-xl"
+                  />
+                </div>
+                
+                <div>
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-2">列數 (Columns)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={tableCols}
+                    onChange={(e) => setTableCols(parseInt(e.target.value) || 1)}
+                    className="w-full px-6 py-4 bg-slate-100 rounded-2xl border-2 border-transparent outline-none focus:bg-white focus:border-purple-400 mt-2 text-slate-700 font-bold text-center text-xl"
+                  />
+                </div>
+
+                <div className="flex gap-4 mt-8">
+                  <button
+                    onClick={() => setShowTableModal(false)}
+                    className="flex-1 py-3 bg-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-300 transition-all"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!editingSubItem) return;
+                      
+                      const numRows = tableRows;
+                      const numCols = tableCols;
+                      
+                      if (numRows <= 0 || numCols <= 0) {
+                        alert('請輸入有效的數字！');
+                        return;
+                      }
+
+                      let tableHtml = '<table style="width: 100%; border-collapse: collapse; margin: 1em 0;">\n';
+                      // Header
+                      tableHtml += '  <thead>\n    <tr style="background-color: #f8fafc;">\n';
+                      for (let j = 0; j < numCols; j++) {
+                        tableHtml += `      <th style="border: 1px solid #cbd5e1; padding: 8px; font-weight: bold; text-align: left;">標題 ${j + 1}</th>\n`;
+                      }
+                      tableHtml += '    </tr>\n  </thead>\n';
+                      // Body
+                      tableHtml += '  <tbody>\n';
+                      for (let i = 0; i < numRows; i++) {
+                        tableHtml += '    <tr>\n';
+                        for (let j = 0; j < numCols; j++) {
+                          tableHtml += `      <td style="border: 1px solid #cbd5e1; padding: 8px;">內容</td>\n`;
+                        }
+                        tableHtml += '    </tr>\n';
+                      }
+                      tableHtml += '  </tbody>\n</table>';
+
+                      const textarea = contentTextareaRef.current;
+                      if (textarea) {
+                        textarea.focus();
+                        const start = textarea.selectionStart;
+                        const end = textarea.selectionEnd;
+                        const currentContent = editingSubItem.content || '';
+                        
+                        const newContent = 
+                          currentContent.substring(0, start) + 
+                          tableHtml + 
+                          currentContent.substring(end);
+                          
+                        setEditingSubItem({ ...editingSubItem, content: newContent });
+                        
+                        setTimeout(() => {
+                          const newPos = start + tableHtml.length;
+                          textarea.setSelectionRange(newPos, newPos);
+                        }, 0);
+                      } else {
+                        setEditingSubItem({ ...editingSubItem, content: (editingSubItem.content || '') + tableHtml });
+                      }
+                      setShowTableModal(false);
+                    }}
+                    className="flex-1 py-3 bg-purple-500 text-white rounded-xl font-bold hover:bg-purple-600 transition-all shadow-lg shadow-purple-200"
+                  >
+                    插入表格
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="glass-card rounded-[4rem] p-12 border-8 border-white shadow-2xl">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-3xl font-black text-slate-800 acg-title">
@@ -609,6 +717,17 @@ const GameEditor: React.FC<GameEditorProps> = ({
                   >
                     自定義顏色
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTableRows(3);
+                      setTableCols(3);
+                      setShowTableModal(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-white hover:scale-105 transition-all bg-indigo-200 text-indigo-700"
+                  >
+                    插入表格
+                  </button>
                 </div>
                 <p className="text-xs text-slate-400 mt-2">
                   💡 提示：在內容中選中文字後點擊顏色按鈕，會將選中的文字設置為該顏色
@@ -678,7 +797,7 @@ const GameEditor: React.FC<GameEditorProps> = ({
                 <div className="flex gap-2 mt-2">
                   <input
                     type="color"
-                    value={editingSubItem?.textColor || '#000000'}
+                    value={editingSubItem?.textColor || '#FF5722'}
                     onChange={(e) => {
                       if (editingSubItem) {
                         setEditingSubItem({ ...editingSubItem, textColor: e.target.value });
@@ -695,7 +814,7 @@ const GameEditor: React.FC<GameEditorProps> = ({
                       }
                     }}
                     className="flex-1 px-4 py-3 bg-white/60 rounded-xl border-2 border-white outline-none focus:bg-white focus:border-orange-400 text-slate-700 font-bold"
-                    placeholder="#000000"
+                    placeholder="#FF5722"
                   />
                 </div>
               </div>
@@ -780,7 +899,7 @@ const GameEditor: React.FC<GameEditorProps> = ({
                 <div className="flex gap-2 mt-2">
                   <input
                     type="color"
-                    value={editingItem.textColor || '#000000'}
+                    value={editingItem.textColor || '#FF5722'}
                     onChange={(e) => setEditingItem({ ...editingItem, textColor: e.target.value })}
                     className="w-16 h-12 rounded-xl border-2 border-white cursor-pointer"
                   />
@@ -789,7 +908,7 @@ const GameEditor: React.FC<GameEditorProps> = ({
                     value={editingItem.textColor || ''}
                     onChange={(e) => setEditingItem({ ...editingItem, textColor: e.target.value })}
                     className="flex-1 px-4 py-3 bg-white/60 rounded-xl border-2 border-white outline-none focus:bg-white focus:border-orange-400 text-slate-700 font-bold"
-                    placeholder="#000000"
+                    placeholder="#FF5722"
                   />
                 </div>
               </div>
