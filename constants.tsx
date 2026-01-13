@@ -1,7 +1,7 @@
 import { GameKB, GameCategory, SectionType, BannerItem, UpcomingGame } from './types';
 
 // 数据版本号：用于强制更新本地数据（当代码中的版本号 > 本地存储的版本号时）
-export const DATA_VERSION = '2026-01-13-v1768319350322';
+export const DATA_VERSION = '2026-01-14-v1768321400000';
 
 export const INITIAL_BANNERS: BannerItem[] = [
   {
