@@ -1,18 +1,18 @@
 import { GameKB, GameCategory, SectionType, BannerItem, UpcomingGame } from './types';
 
 // 数据版本号：用于强制更新本地数据（当代码中的版本号 > 本地存储的版本号时）
-export const DATA_VERSION = '2026-01-14-v1768321400000';
+export const DATA_VERSION = '2026-01-14-v1768405842097';
 
 export const INITIAL_BANNERS: BannerItem[] = [
   {
     "id": "1767708157466",
-    "imageUrl": "https://img.cdn1.vip/i/695d15e3325b7_1767708131.webp",
+    "imageUrl": "https://upload.8591.com.tw//deal/202601/BwAywesgRA3HYNfdWx7PB0O39Z4JNqejYqseSC96.png",
     "linkUrl": "https://endfield.gryphline.com/zh-tw#home",
     "title": "全球公測定檔1月22日"
   },
   {
     "id": "1767708198303",
-    "imageUrl": "https://img.cdn1.vip/i/695d161a58784_1767708186.webp",
+    "imageUrl": "https://upload.8591.com.tw//deal/202601/dLBHnC7ENIXsqYWrsDPFf7lkb0BzxPerOoIUk6Jv.png",
     "linkUrl": "https://wutheringwaves.kurogames.com/zh-tw/main/news/detail/3913",
     "title": "3.0版本我們生而眺望 已上線"
   }
@@ -38,7 +38,7 @@ export const INITIAL_GAMES: GameKB[] = [
     "id": "mc-001",
     "name": "鳴潮 (Wuthering Waves)",
     "category": "手機遊戲",
-    "coverImage": "https://upload.8591.com.tw//deal/202601/TALefLZsELlL5DP5lCN8RiQQ8gOlZHhWUq6jyxkn.png",
+    "coverImage": "https://upload.8591.com.tw//deal/202601/AZVGQ7ikjN2m0PYLXb1yaAVVSEU2KxxsMQesCA0d.png",
     "sections": [
       {
         "type": "遊戲術語",
@@ -75,13 +75,17 @@ export const INITIAL_GAMES: GameKB[] = [
           }
         ]
       }
-    ]
+    ],
+    "officialWebsite": "https://wutheringwaves.kurogames.com/zh-tw/main/",
+    "bannerImage": "https://upload.8591.com.tw//deal/202601/dLBHnC7ENIXsqYWrsDPFf7lkb0BzxPerOoIUk6Jv.png",
+    "bannerTitle": "鳴潮3.0版本已上線",
+    "bannerLink": "https://wutheringwaves.kurogames.com/zh-tw/main/news/detail/3913"
   },
   {
     "id": "lol-001",
     "name": "英雄聯盟 (League of Legends)",
     "category": "線上遊戲",
-    "coverImage": "https://upload.8591.com.tw//deal/202601/oB6FZqWKPhSHLO7af3sp49r97x8ZxKLT1JIuZ9dh.png",
+    "coverImage": "https://upload.8591.com.tw//deal/202601/RcbUe4nqJpAaSSLs5bBfSUgx5SVPkk61u4kR5qO9.png",
     "sections": [
       {
         "type": "客服聯絡",
@@ -100,13 +104,17 @@ export const INITIAL_GAMES: GameKB[] = [
           }
         ]
       }
-    ]
+    ],
+    "officialWebsite": "https://www.leagueoflegends.com/zh-tw/",
+    "bannerLink": "https://www.leagueoflegends.com/zh-tw/news/game-updates/patch-26-1-notes/",
+    "bannerTitle": "英雄聯盟2026年全新賽季",
+    "bannerImage": "https://upload.8591.com.tw//deal/202601/ocT4pszeAvZtLMYURohTONRkSA4Y3T2aoNsi2qCA.png"
   },
   {
     "id": "zzz-001",
     "name": "絕區零 (Zenless Zone Zero)",
     "category": "手機遊戲",
-    "coverImage": "https://upload-bbs.miyoushe.com/upload/2025/11/12/440336986/612f0459cb804d41f6ea147e5f778891_1406418948729606030.jpg?x-oss-process=image//resize,s_500/quality,q_80/auto-orient,0/interlace,1/format,jpg",
+    "coverImage": "https://upload.8591.com.tw//deal/202601/kPD2RCQzku34OT9IYW4fx41prL8QAy55Ix7Xd1pc.png",
     "officialWebsite": "https://zenless.hoyoverse.com/zh-tw",
     "sections": [
       {
@@ -129,7 +137,10 @@ export const INITIAL_GAMES: GameKB[] = [
         "type": "案例實踐",
         "items": []
       }
-    ]
+    ],
+    "bannerLink": "https://zenless.hoyoverse.com/zh-tw/news/161728",
+    "bannerTitle": "絕區零2.5版本已上線",
+    "bannerImage": "https://upload.8591.com.tw//deal/202601/oBGjMVpVNk43ARfesQLfkpP3uo148i987dp5SKtD.png"
   },
   {
     "id": "1767707610045",
@@ -530,13 +541,16 @@ export const INITIAL_GAMES: GameKB[] = [
         "type": "案例實踐",
         "items": []
       }
-    ]
+    ],
+    "bannerLink": "https://genshin.hoyoverse.com/zh-tw/",
+    "bannerTitle": "如果在冬夜一個旅人「月之四」版本已上線",
+    "bannerImage": "https://upload.8591.com.tw//deal/202601/n1fBrRXdNdlfWD6J1RU1Kw60Uq3EZ8gb1mkZ6xBL.png"
   },
   {
     "id": "1767707641258",
     "name": "特戰英豪Valorant",
     "category": "線上遊戲",
-    "coverImage": "https://upload.8591.com.tw//deal/202601/BS8bQzpfUCf0Y290G6DfdPgvDmC43UquRmFKYAb0.png",
+    "coverImage": "https://upload.8591.com.tw//deal/202601/6zMCx7pOQFmebHYETp9nyuSmq6Z5yriOssTdFGBJ.png",
     "sections": [
       {
         "type": "遊戲機制",
@@ -878,7 +892,11 @@ export const INITIAL_GAMES: GameKB[] = [
           }
         ]
       }
-    ]
+    ],
+    "bannerTitle": "《特戰英豪》12.00版本賽季更新",
+    "bannerImage": "https://upload.8591.com.tw//deal/202601/Mx7gR0TShOFp14L4RQYXqaZMPlg2YDKYnPfAbS5N.png",
+    "bannerLink": "https://playvalorant.com/zh-tw/news/game-updates/valorant-patch-notes-12-00/",
+    "officialWebsite": "https://playvalorant.com/zh-tw/"
   },
   {
     "id": "1768317911938",
@@ -907,7 +925,7 @@ export const INITIAL_GAMES: GameKB[] = [
         "items": []
       }
     ],
-    "bannerImage": "https://upload.8591.com.tw//deal/202601/TALefLZsELlL5DP5lCN8RiQQ8gOlZHhWUq6jyxkn.png",
+    "bannerImage": "https://upload.8591.com.tw//deal/202601/BwAywesgRA3HYNfdWx7PB0O39Z4JNqejYqseSC96.png",
     "bannerTitle": "1月22日即將公測",
     "bannerLink": "https://endfield.gryphline.com/zh-tw#home"
   }

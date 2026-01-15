@@ -24,7 +24,6 @@ interface AdminPanelProps {
   onUpdateHotGameIds: (ids: string[]) => void;
   banners: BannerItem[];
   onUpdateBanners: (banners: BannerItem[]) => void;
-  onImportBackup?: (data: any) => void;
   onClearSearchHistory?: () => void;
 }
 
@@ -49,7 +48,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
   onUpdateHotGameIds,
   banners,
   onUpdateBanners,
-  onImportBackup,
   onClearSearchHistory
 }) => {
   const [editingGame, setEditingGame] = useState<GameKB | null>(null);
@@ -403,6 +401,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
                             className="w-full h-32 object-cover rounded-xl border-2 border-gray-200"
                           />
                         )}
+                        <p className="mt-2 text-xs text-blue-500 font-bold">
+                          建議使用 1600×800（2:1）圖片，方便在首頁 Banner 中完整展示
+                        </p>
                      </div>
 
                      {/* Link Input & Add Button */}
@@ -765,90 +766,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({
           >
             <span>🧹</span> 清空熱門搜索歷史
           </button>
-        </div>
-      </div>
-
-      {/* 數據備份與恢復 */}
-      <div className="mt-8 glass-card rounded-[2.5rem] p-8 border-4 border-white shadow-xl relative overflow-hidden">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-            <span className="text-2xl">💾</span> 數據備份與恢復
-          </h3>
-          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
-            防止本地數據丟失
-          </span>
-        </div>
-        
-        <div className="flex gap-4">
-          <button
-            onClick={() => {
-              const fullBackup = {
-                games,
-                banners,
-                hotGameIds,
-                upcomingGames,
-                exportDate: new Date().toISOString()
-              };
-              const dataStr = JSON.stringify(fullBackup, null, 2);
-              const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-              const exportFileDefaultName = `8591_gamekb_full_backup_${new Date().toISOString().slice(0,10)}.json`;
-              const linkElement = document.createElement('a');
-              linkElement.setAttribute('href', dataUri);
-              linkElement.setAttribute('download', exportFileDefaultName);
-              linkElement.click();
-            }}
-            className="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-black transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95"
-          >
-            <span>📤</span> 導出全站備份 (JSON)
-          </button>
-          
-          <div className="flex-1 relative">
-            <input
-              type="file"
-              accept=".json"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                
-                if (!confirm('⚠️ 警告：導入數據將覆蓋當前所有遊戲、Banner、熱門設置等數據！\n建議先導出備份。\n\n確定要繼續嗎？')) {
-                  e.target.value = '';
-                  return;
-                }
-
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                  try {
-                    const json = JSON.parse(event.target?.result as string);
-                    
-                    // 檢測是否為全站備份格式
-                    if (json.games || json.banners || json.upcomingGames) {
-                      if (onImportBackup) {
-                        onImportBackup(json);
-                      } else if (Array.isArray(json) && onImportGames) {
-                        // 兼容舊版純數組格式
-                        onImportGames(json);
-                        alert('✅ 舊版遊戲數據導入成功！');
-                      }
-                    } else if (Array.isArray(json) && onImportGames) {
-                       // 兼容舊版純數組格式
-                       onImportGames(json);
-                       alert('✅ 遊戲數據導入成功！');
-                    } else {
-                      alert('❌ 數據格式錯誤！請確保文件是有效的備份文件。');
-                    }
-                  } catch (err) {
-                    alert('❌ 文件解析失敗！');
-                  }
-                  e.target.value = '';
-                };
-                reader.readAsText(file);
-              }}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            />
-            <button className="w-full h-full py-4 bg-blue-500 hover:bg-blue-600 text-white rounded-2xl font-black transition-all shadow-lg flex items-center justify-center gap-2 active:scale-95">
-              <span>📥</span> 導入恢復 (JSON)
-            </button>
-          </div>
         </div>
       </div>
 

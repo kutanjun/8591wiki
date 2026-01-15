@@ -129,7 +129,9 @@ const BannerConfigModal: React.FC<BannerConfigModalProps> = ({ game, onClose, on
                 />
               </div>
             )}
-            <p className="text-xs text-slate-400 mt-1">留空則使用封面圖作為 Banner</p>
+            <p className="text-xs text-slate-400 mt-1">
+              建議使用 1600×800（2:1）圖片；留空則使用封面圖作為 Banner
+            </p>
           </div>
         </div>
 

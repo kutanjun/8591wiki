@@ -1049,6 +1049,9 @@ const GameEditor: React.FC<GameEditorProps> = ({
               onChange={(e) => handleGameInfoChange('coverImage', e.target.value)}
               className="w-full px-6 py-4 bg-white/60 rounded-2xl border-2 border-white outline-none focus:bg-white focus:border-orange-400 mt-2 text-slate-500 text-sm font-bold"
             />
+            <p className="mt-2 text-xs text-slate-400">
+              建議使用 800×400 尺寸（2:1 橫圖），可在列表卡片中完整展示
+            </p>
             {editedGame.coverImage && (
               <div className="mt-4">
                 <img 
@@ -1073,7 +1076,7 @@ const GameEditor: React.FC<GameEditorProps> = ({
               placeholder="留空則使用封面圖作為 Banner"
             />
             <p className="mt-2 text-xs text-slate-400">
-              Banner 圖片用於遊戲板塊頂部的橫幅展示，與封面圖分開管理
+              建議使用 1600×800（2:1）圖片；Banner 圖片用於遊戲板塊頂部的橫幅展示，與封面圖分開管理
             </p>
             {editedGame.bannerImage && (
               <div className="mt-4">

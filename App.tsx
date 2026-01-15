@@ -208,13 +208,13 @@ const AppContent: React.FC = () => {
     localStorage.setItem('searchClickLog', JSON.stringify(searchClickLog));
   }, [searchClickLog]);
 
-  // 生成热门搜索数据（基于点击统计 + 随机兜底）
+  // 生成热门搜索数据（僅基於實際點擊統計）
   useEffect(() => {
     if (games.length > 0) {
       const allItems: HotSearchItem[] = [];
-      const sevenDaysAgo = Date.now() - 7 * 86400000;
+      const thirtyDaysAgo = Date.now() - 30 * 86400000;
       const clickCounts = searchClickLog
-        .filter(entry => entry.timestamp >= sevenDaysAgo)
+        .filter(entry => entry.timestamp >= thirtyDaysAgo)
         .reduce((counts, entry) => {
           counts[entry.key] = (counts[entry.key] || 0) + 1;
           return counts;
@@ -244,17 +244,15 @@ const AppContent: React.FC = () => {
         return a.gameName.localeCompare(b.gameName) || a.keyword.localeCompare(b.keyword);
       });
 
-      // 如果完全没有点击记录，则不显示任何推荐（根据用户需求：清空后应无数据）
-      // 或者：如果用户希望清空后仍显示默认推荐但固定排序，上面的排序逻辑已解决乱序问题
-      // 但根据用户反馈「清空之后，還是有數據」，說明用戶期望清空後變為空白
-      
-      const hasAnyClicks = searchClickLog.length > 0;
-      
-      if (!hasAnyClicks) {
-         setHotSearchItems([]);
+      // 只保留有實際點擊過的項目（count > 0）
+      const itemsWithClicks = allItems.filter(item => (item.count || 0) > 0);
+
+      // 如果完全沒有點擊紀錄，熱門搜索保持為空
+      if (itemsWithClicks.length === 0) {
+        setHotSearchItems([]);
       } else {
-         // 只取前 8 个
-         setHotSearchItems(allItems.slice(0, 8));
+        // 只取前 8 個
+        setHotSearchItems(itemsWithClicks.slice(0, 8));
       }
     }
   }, [games, searchClickLog]);
@@ -426,9 +424,9 @@ const AppContent: React.FC = () => {
   const handleRecordSearchClick = (gameId: string, sectionType: string, itemId: string, keyword: string) => {
     const key = `${gameId}-${itemId}`;
     const now = Date.now();
-    const sevenDaysAgo = now - 7 * 86400000;
+    const thirtyDaysAgo = now - 30 * 86400000;
     const newLog = [
-      ...searchClickLog.filter(entry => entry.timestamp >= sevenDaysAgo),
+      ...searchClickLog.filter(entry => entry.timestamp >= thirtyDaysAgo),
       { key, timestamp: now }
     ];
     setSearchClickLog(newLog);
@@ -506,26 +504,6 @@ const AppContent: React.FC = () => {
   const handleImportGames = (importedGames: GameKB[]) => {
     setGames(importedGames);
     saveGamesToStorage(importedGames);
-  };
-
-  const handleImportBackup = (data: any) => {
-    if (data.games) {
-      setGames(data.games);
-      saveGamesToStorage(data.games);
-    }
-    if (data.banners) {
-      setBanners(data.banners);
-    }
-    if (data.hotGameIds) {
-      setHotGameIds(data.hotGameIds);
-    }
-    if (data.upcomingGames) {
-      setUpcomingGames(data.upcomingGames);
-    }
-    if (data.searchClickLog) {
-      setSearchClickLog(data.searchClickLog);
-    }
-    alert('✅ 全站數據恢復成功！');
   };
 
   const handleClearSearchHistory = () => {
@@ -740,8 +718,15 @@ const AppContent: React.FC = () => {
     [newOrder[index1], newOrder[index2]] = [newOrder[index2], newOrder[index1]];
     
     saveGameOrder(newOrder);
-    // 触发重新渲染
-    setGames([...games]);
+    
+    const sortedAllGames = [...games].sort((a, b) => {
+      const indexA = newOrder.indexOf(a.id);
+      const indexB = newOrder.indexOf(b.id);
+      return indexA - indexB;
+    });
+
+    setGames(sortedAllGames);
+    saveGamesToStorage(sortedAllGames);
   };
 
   const filteredGames = activeCategory === 'HOME' 
@@ -910,15 +895,26 @@ const AppContent: React.FC = () => {
           </button>
           
           <div 
-            className="relative h-64 rounded-3xl overflow-hidden shadow-xl border-4 border-white"
+            className="relative rounded-3xl overflow-hidden shadow-xl border-4 border-white flex items-center justify-center bg-black"
+            style={{ aspectRatio: '2 / 1', maxHeight: '320px', width: '100%', cursor: selectedGame.bannerLink ? 'pointer' : 'default' }}
             onClick={() => {
               if (selectedGame.bannerLink) {
                 window.open(selectedGame.bannerLink, '_blank');
               }
             }}
-            style={{ cursor: selectedGame.bannerLink ? 'pointer' : 'default' }}
           >
             <img src={gameBannerImage} className="w-full h-full object-cover" alt={selectedGame.name} />
+            {gameBannerImage && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.open(gameBannerImage, '_blank');
+                }}
+                className="absolute top-4 left-4 bg-black/60 hover:bg-black/80 text-white px-3 py-1 rounded-full text-xs font-bold z-20"
+              >
+                查看完整圖片
+              </button>
+            )}
             <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/20 to-transparent flex items-center p-12">
               <div className="flex-1">
                 <span className="px-3 py-1 bg-orange-500 text-white rounded-full text-[10px] font-black mb-3 inline-block">
@@ -1013,7 +1009,6 @@ const AppContent: React.FC = () => {
         onUpdateHotGameIds={setHotGameIds}
         banners={banners}
         onUpdateBanners={setBanners}
-        onImportBackup={handleImportBackup}
         onClearSearchHistory={handleClearSearchHistory}
       />;
     }
@@ -1133,7 +1128,8 @@ const AppContent: React.FC = () => {
                   )}
                   <div className="cursor-pointer">
                     <div 
-                      className="h-56 relative overflow-hidden"
+                      className="relative overflow-hidden bg-black"
+                      style={{ paddingBottom: '50%' }}
                       onClick={(e) => {
                         if (game.officialWebsite) {
                           e.stopPropagation();
@@ -1143,7 +1139,11 @@ const AppContent: React.FC = () => {
                         }
                       }}
                     >
-                      <img src={game.coverImage} className="w-full h-full object-cover" alt={game.name} />
+                      <img 
+                        src={game.coverImage} 
+                        className="absolute inset-0 w-full h-full object-cover" 
+                        alt={game.name} 
+                      />
                     </div>
                     <div className="p-8">
                       <h3 className="text-2xl font-black text-slate-800 mb-4" onClick={() => handleGameClick(game)}>{game.name}</h3>
@@ -1296,7 +1296,7 @@ const AppContent: React.FC = () => {
           >
             <div className="absolute inset-0 bg-gradient-to-br from-orange-400/20 to-transparent z-10"></div>
             <img 
-              src="https://img.cdn1.vip/i/695bdff267927_1767628786.webp" 
+              src="https://upload.8591.com.tw//deal/202601/P2YyBQ4ylnOvkPRV0eyJIDIOAUmtpmbgVm8WydFu.png" 
               className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" 
               alt="Online" 
             />
@@ -1315,7 +1315,7 @@ const AppContent: React.FC = () => {
           >
             <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-transparent z-10"></div>
             <img 
-              src="https://img.cdn1.vip/i/695be14bf3e5e_1767629131.webp" 
+              src="https://upload.8591.com.tw//deal/202601/6D0lRLyvDvSVELqmdKtoMf2fRAcpCpFpc557vTL8.png" 
               className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" 
               alt="Mobile" 
             />
@@ -1334,7 +1334,7 @@ const AppContent: React.FC = () => {
           >
             <div className="absolute inset-0 bg-gradient-to-br from-purple-400/20 to-transparent z-10"></div>
             <img 
-              src="https://img.cdn1.vip/i/695be1938c4d4_1767629203.webp" 
+              src="https://upload.8591.com.tw//deal/202601/3YVptmg1kbDV8JrC8uIKfwEaTJFdiIWJPegQzjIw.png" 
               className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity" 
               alt="Steam" 
             />

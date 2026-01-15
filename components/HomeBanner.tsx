@@ -15,7 +15,10 @@ const HomeBanner: React.FC<{ banners: BannerItem[] }> = ({ banners }) => {
   if (banners.length === 0) return null;
 
   return (
-    <div className="relative w-full h-48 md:h-72 rounded-[2.5rem] overflow-hidden shadow-2xl mb-12 group glass-card border-4 border-white/50">
+    <div 
+      className="relative w-full rounded-[2.5rem] overflow-hidden shadow-2xl mb-12 group glass-card border-4 border-white/50 bg-black"
+      style={{ paddingBottom: '50%' }}
+    >
       {banners.map((banner, index) => {
         const isCurrent = index === currentIndex;
         const Content = () => (
@@ -26,6 +29,16 @@ const HomeBanner: React.FC<{ banners: BannerItem[] }> = ({ banners }) => {
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(banner.imageUrl, '_blank');
+              }}
+              className="absolute top-4 left-4 bg-black/60 hover:bg-black/80 text-white px-3 py-1 rounded-full text-xs font-bold z-20"
+            >
+              查看完整圖片
+            </button>
             {banner.title && (
               <div className="absolute bottom-0 left-0 p-6 md:p-8 w-full pointer-events-none">
                 <h3 className="text-white text-xl md:text-3xl font-black drop-shadow-lg line-clamp-2">

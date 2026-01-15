@@ -29,9 +29,9 @@ const BannerSection: React.FC<BannerSectionProps> = ({ game, isAdminLoggedIn, on
 
   return (
     <div 
-      className="relative h-56 rounded-2xl overflow-hidden shadow-lg bg-gradient-to-r from-slate-200 to-slate-300"
+      className="relative rounded-2xl overflow-hidden shadow-lg bg-gradient-to-r from-slate-200 to-slate-300 flex items-center justify-center"
       onClick={handleBannerClick}
-      style={{ cursor: game.bannerLink ? 'pointer' : 'default' }}
+      style={{ cursor: game.bannerLink ? 'pointer' : 'default', aspectRatio: '2 / 1', maxHeight: '260px', width: '100%' }}
     >
       <img 
         src={bannerImageUrl} 
@@ -39,6 +39,18 @@ const BannerSection: React.FC<BannerSectionProps> = ({ game, isAdminLoggedIn, on
         alt={game.name} 
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-transparent"></div>
+      
+      {bannerImageUrl && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            window.open(bannerImageUrl, '_blank');
+          }}
+          className="absolute top-4 left-4 bg-black/60 hover:bg-black/80 text-white px-3 py-1 rounded-full text-xs font-bold z-20"
+        >
+          查看完整圖片
+        </button>
+      )}
       
       {/* Banner 标题显示 */}
       {game.bannerTitle && (
